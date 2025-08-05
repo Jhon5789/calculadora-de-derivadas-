@@ -1,54 +1,162 @@
-"""
-Calculadora de Derivadas paso a paso
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calculadora de Derivadas - GitHub Pages</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 10px; }
+  h1 { text-align: center; }
+  label { font-weight: bold; }
+  textarea { width: 100%; height: 60px; font-size: 1.1em; margin-bottom: 10px; }
+  #resultado, #procedimiento { background: #f5f5f5; padding: 10px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap; font-family: monospace; }
+  canvas { margin-top: 20px; max-width: 100%; }
+  button { padding: 10px 20px; font-size: 1.1em; cursor: pointer; }
+</style>
+</head>
+<body>
 
-Cómo usar:
-1. Instala dependencias:
-   pip install sympy matplotlib numpy
+<h1>Calculadora de Derivadas</h1>
 
-2. Ejecuta este archivo:
-   python calculadora_derivada.py
+<label for="funcion">Ingresa la función en variable <code>x</code>:</label>
+<textarea id="funcion" placeholder="Ejemplo: x^2 + sqrt(x) + 1/x"></textarea>
 
-3. Ingresa tu función en la consola cuando se te pida.
-"""
+<button onclick="calcularDerivada()">Calcular Derivada</button>
 
-import sympy as sp
-import matplotlib.pyplot as plt
-import numpy as np
+<h2>Resultado</h2>
+<div id="resultado">Aquí aparecerá la derivada...</div>
 
-def main():
-    sp.init_printing(use_unicode=True)
-    x = sp.Symbol('x')
+<h2>Procedimiento simplificado</h2>
+<div id="procedimiento">Aquí aparecerá el procedimiento...</div>
 
-    expresion = input("Ingresa una función para derivar en x (ejemplo: x**2 + sqrt(x) + 1/x):\n\nf(x) = ")
+<h2>Gráfica</h2>
+<canvas id="grafica" width="700" height="400"></canvas>
 
-    try:
-        funcion = sp.sympify(expresion)
-    except sp.SympifyError:
-        print("❌ No se pudo entender la expresión. Intenta de nuevo.")
-        return
+<!-- Librerías -->
+<script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    derivada = sp.diff(funcion, x)
+<script>
+function calcularDerivada() {
+  const fText = document.getElementById('funcion').value.trim();
+  const resultadoDiv = document.getElementById('resultado');
+  const procedimientoDiv = document.getElementById('procedimiento');
 
-    print("\n✅ Derivación paso a paso:\n")
-    pasos = sp.simplify(sp.derive_by_array(funcion, x, evaluate=False))
-    sp.pprint(pasos[0])
+  if (!fText) {
+    resultadoDiv.textContent = 'Por favor ingresa una función válida.';
+    procedimientoDiv.textContent = '';
+    return;
+  }
 
-    print("\n🧮 Derivada simplificada final:")
-    sp.pprint(derivada)
+  try {
+    // Parsear función
+    const f = nerdamer(fText);
 
-    x_vals = np.linspace(-10, 10, 1000)
-    f_lamb = sp.lambdify(x, funcion, 'numpy')
-    d_lamb = sp.lambdify(x, derivada, 'numpy')
+    // Derivar
+    const df = nerdamer.diff(f, 'x').expand();
 
-    plt.figure(figsize=(10,5))
-    plt.plot(x_vals, f_lamb(x_vals), label='f(x)')
-    plt.plot(x_vals, d_lamb(x_vals), label="f'(x)", linestyle='--')
-    plt.title("Función y su derivada")
-    plt.axhline(0, color='black', lw=0.5)
-    plt.axvline(0, color='black', lw=0.5)
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    // Mostrar derivada
+    resultadoDiv.textContent = df.toString();
 
-if __name__ == "__main__":
-    main()
+    // Procedimiento simplificado:
+    // nerdamer no da paso a paso detallado, pero podemos mostrar derivada antes y después de simplificar:
+    const derivadaSinExpandir = nerdamer.diff(f, 'x').toString();
+    procedimientoDiv.textContent = 
+      `Derivada sin expandir:\n${derivadaSinExpandir}\n\nDerivada expandida/simplificada:\n${df.toString()}`;
+
+    graficar(fText, df.toString());
+  } catch (error) {
+    resultadoDiv.textContent = 'Error al procesar la función. Revisa la sintaxis.';
+    procedimientoDiv.textContent = '';
+    console.error(error);
+  }
+}
+
+function graficar(funcionStr, derivadaStr) {
+  const ctx = document.getElementById('grafica').getContext('2d');
+
+  // Limpiar gráfica anterior si existe
+  if(window.chartInstance) {
+    window.chartInstance.destroy();
+  }
+
+  // Crear funciones evaluables
+  const fEval = nerdamer(funcionStr).buildFunction(['x']);
+  const dEval = nerdamer(derivadaStr).buildFunction(['x']);
+
+  // Crear datos para x entre -10 y 10
+  const xValues = [];
+  const fValues = [];
+  const dValues = [];
+
+  for(let i = 0; i <= 1000; i++) {
+    let x = -10 + 20 * (i/1000);
+    xValues.push(x.toFixed(2));
+    try {
+      fValues.push(fEval(x));
+    } catch {
+      fValues.push(null);
+    }
+    try {
+      dValues.push(dEval(x));
+    } catch {
+      dValues.push(null);
+    }
+  }
+
+  window.chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: xValues,
+      datasets: [
+        {
+          label: 'f(x)',
+          data: fValues,
+          borderColor: 'blue',
+          fill: false,
+          borderWidth: 2,
+          pointRadius: 0,
+        },
+        {
+          label: "f'(x)",
+          data: dValues,
+          borderColor: 'red',
+          fill: false,
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+        }
+      ]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      scales: {
+        x: {
+          display: true,
+          title: {
+            display: true,
+            text: 'x'
+          }
+        },
+        y: {
+          display: true,
+          title: {
+            display: true,
+            text: 'y'
+          },
+          suggestedMin: -20,
+          suggestedMax: 20
+        }
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>
